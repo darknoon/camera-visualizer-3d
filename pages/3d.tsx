@@ -5,7 +5,9 @@ import styles from "../styles/3d.module.css";
 import { Environment, OrbitControls, Plane, Torus } from "@react-three/drei";
 import {
   CameraConfig,
+  CameraInfo,
   CameraPosition,
+  LensInfo,
   makeCameraConfig,
   Rotation,
 } from "../data/PanoramaConfig";
@@ -32,34 +34,46 @@ const CanvasSizer = (props: React.PropsWithChildren<{}>) => {
 const CameraPosition = ({
   isActive,
   makeActive,
-  coordinate,
-  ...rest
-}: GroupProps & {
+  camera,
+  lens,
+  angle,
+}: {
   isActive: boolean;
-  coordinate: Coordinate;
+  camera: CameraInfo;
+  lens: LensInfo;
+  angle: CameraPosition;
   makeActive: (active: Coordinate | undefined) => void;
-}) => (
-  <>
-    <group {...rest}>
-      <Plane
-        position={[0, 0, -3]}
-        rotation={[0, 0, 0]}
-        scale={[4, 3, 1]}
-        onPointerEnter={() => makeActive(coordinate)}
-        onPointerLeave={() => makeActive(undefined)}
-      >
-        <meshStandardMaterial color={isActive ? "white" : "gray"} />
-      </Plane>
-      <Torus
-        args={[0.3, 0.01, 8, 64]}
-        position={[0, 0, -1]}
-        rotation={[Math.PI, 0, 0]}
-      >
-        <meshStandardMaterial color={isActive ? "yellow" : "gray"} />
-      </Torus>
-    </group>
-  </>
-);
+}) => {
+  const scale = 3;
+  const { sensorWidth, sensorHeight } = camera;
+  const lensScale = sensorWidth / lens.focalLength;
+  return (
+    <>
+      <group rotation={panTiltRollToThreeJSEuler(angle.rotation)}>
+        <Plane
+          position={[0, 0, -scale]}
+          rotation={[0, 0, 0]}
+          scale={[
+            scale * lensScale,
+            scale * lensScale * (sensorHeight / sensorWidth),
+            1,
+          ]}
+          onPointerEnter={() => makeActive(angle.coordinate)}
+          onPointerLeave={() => makeActive(undefined)}
+        >
+          <meshStandardMaterial color={isActive ? "white" : "gray"} />
+        </Plane>
+        <Torus
+          args={[0.1, 0.01, 8, 64]}
+          position={[0, 0, -1]}
+          rotation={[Math.PI, 0, 0]}
+        >
+          <meshStandardMaterial color={isActive ? "yellow" : "gray"} />
+        </Torus>
+      </group>
+    </>
+  );
+};
 
 // Show camera parameters
 const Parameters = ({ config: { cameraInfo } }: { config: CameraConfig }) => (
@@ -83,7 +97,11 @@ const Parameters = ({ config: { cameraInfo } }: { config: CameraConfig }) => (
 const cameraConfig = makeCameraConfig(
   { sensorWidth: 35.6, sensorHeight: 23.8 },
   { focalLength: 18 },
-  [3, 6, 3]
+  [
+    [MathUtils.degToRad(-60), 6],
+    [0, 6],
+    [MathUtils.degToRad(60), 6],
+  ]
 );
 
 const panTiltRollToThreeJSEuler = (
@@ -118,13 +136,14 @@ const PositionsVisualizer = ({
 
       {cameraConfig.angles.map((angle, i) => (
         <CameraPosition
-          rotation={panTiltRollToThreeJSEuler(angle.rotation)}
           key={angle.coordinate[0] * 1000 + angle.coordinate[1]}
           isActive={
             activePosition !== undefined &&
             coordinateEqual(angle.coordinate, activePosition)
           }
-          coordinate={angle.coordinate}
+          angle={angle}
+          lens={cameraConfig.lensInfo}
+          camera={cameraConfig.cameraInfo}
           makeActive={(activePosition) => makeActive(angle.coordinate)}
         />
       ))}
@@ -153,9 +172,17 @@ const ShotsView = ({
   active: Coordinate | undefined;
   makeActive: MakeActiveFn;
 }) => {
-  const numberFormatter = useMemo(
+  const degreesFormatter = useMemo(
     () =>
       new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 1,
+      }),
+    []
+  );
+  const filenameFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("en-us", {
         minimumFractionDigits: 0,
         maximumFractionDigits: 1,
       }),
@@ -170,7 +197,7 @@ const ShotsView = ({
           <section key={`row-${rowIndex}`}>
             <h4>
               Row {rowIndex} (
-              {numberFormatter.format(MathUtils.radToDeg(row.tilt))}°)
+              {degreesFormatter.format(MathUtils.radToDeg(row.tilt))}°)
             </h4>
             <ol>
               {byRow[rowIndex].angles.map((angle, i) => {
@@ -185,7 +212,9 @@ const ShotsView = ({
                     ].join(" ")}
                     onPointerOver={() => makeActive(angle.coordinate)}
                     onPointerOut={() => makeActive(undefined)}
-                  ></li>
+                  >
+                    {0}.jpg
+                  </li>
                 );
               })}
             </ol>
