@@ -1,8 +1,14 @@
 import * as THREE from "three";
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, GroupProps } from "@react-three/fiber";
+import { Canvas, GroupProps, MeshProps } from "@react-three/fiber";
 import styles from "../styles/3d.module.css";
-import { Environment, OrbitControls, Plane, Torus } from "@react-three/drei";
+import {
+  Box,
+  Environment,
+  OrbitControls,
+  Plane,
+  Torus,
+} from "@react-three/drei";
 import {
   CameraConfig,
   CameraInfo,
@@ -11,9 +17,10 @@ import {
   makeCameraConfig,
   Rotation,
 } from "../data/PanoramaConfig";
-import { MathUtils } from "three";
-// import { useLoader } from "@react-three/fiber";
-// import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { BoxGeometry, MathUtils } from "three";
+import { useLoader } from "@react-three/fiber";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
 
 // Only renders its children on client
 const CanvasSizer = (props: React.PropsWithChildren<{}>) => {
@@ -61,7 +68,7 @@ const CameraPosition = ({
           onPointerEnter={() => makeActive(angle.coordinate)}
           onPointerLeave={() => makeActive(undefined)}
         >
-          <meshStandardMaterial color={isActive ? "white" : "gray"} />
+          <meshBasicMaterial color={isActive ? "#eee" : "#333"} />
         </Plane>
         <Torus
           args={[0.1, 0.01, 8, 64]}
@@ -113,6 +120,61 @@ const panTiltRollToThreeJSEuler = (
   "YXZ",
 ];
 
+// const GroundPlane = (props: MeshProps) => {
+//   const uniforms = {};
+//   const vertex = `
+//     varying vec2 vUv;
+//   `;
+//   return (
+//     <Plane>
+//       <shaderMaterial
+//         attach="material"
+//         args={[
+//           {
+//             uniforms: uniforms,
+//             vertexShader: vertex,
+//             fragmentShader: fragment,
+//           },
+//         ]}
+//       />
+//     </Plane>
+//   );
+// };
+
+function GroundPlane(props: MeshProps) {
+  return (
+    <Plane {...props} args={[10, 10]} rotation={[Math.PI / 2, 0, 0]}>
+      <meshBasicMaterial color={"black"} side={THREE.DoubleSide} />
+    </Plane>
+  );
+}
+
+const TripodModel = (props: MeshProps) => {
+  // Too complicated to use the compressed version it seems
+  // Have to find a way to host the draco decoder somwhere in /public/. eh, shouldn't the bundler be doing this?
+  /*
+  const gltf = useLoader(
+    GLTFLoader,
+    "/tripod_export.glb",
+    (loader: THREE.Loader) => {
+      if (loader instanceof GLTFLoader) {
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath("/draco-gltf/");
+        loader.setDRACOLoader(dracoLoader);
+      }
+    }
+  );
+  */
+  const gltf = useLoader(
+    GLTFLoader,
+    "/tripod_export.glb",
+    undefined,
+    (xhr) => console.log(xhr, (xhr.loaded / xhr.total) * 100 + "% loaded") // optional
+  );
+
+  return <primitive object={gltf.scene} {...props} />;
+};
+
 const PositionsVisualizer = ({
   activePosition,
   makeActive,
@@ -120,19 +182,12 @@ const PositionsVisualizer = ({
   activePosition: Coordinate | undefined;
   makeActive: MakeActiveFn;
 }) => {
-  // const gltf = useLoader(GLTFLoader, "/tripod_export.glb");
-  //   return (
-  //     <Suspense fallback={null}>
-  //       <primitive object={gltf.scene} />
-  //     </Suspense>
-  //   );
-
   return (
     <group>
       <OrbitControls />
       <ambientLight />
+
       <pointLight position={[10, 10, 10]} />
-      {/* <primitive object={gltf.scene} /> */}
 
       {cameraConfig.angles.map((angle, i) => (
         <CameraPosition
@@ -147,6 +202,11 @@ const PositionsVisualizer = ({
           makeActive={(activePosition) => makeActive(angle.coordinate)}
         />
       ))}
+
+      <Suspense fallback={<Box />}>
+        <TripodModel position={[0, -1.1, 0]} />
+      </Suspense>
+      {/* <GroundPlane position={[0, -1.1, 0]} /> */}
     </group>
   );
 };
