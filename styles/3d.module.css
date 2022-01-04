@@ -1,0 +1,36 @@
+.canvasContainer {
+  padding: 0 0;
+  background: gray;
+  flex-grow: 1;
+}
+
+.wrapper {
+  display: flex;
+}
+
+.sidebar {
+  margin: 2rem;
+  flex-grow: 1;
+}
+
+.parameters {
+  color: orangered;
+}
+
+.cameraImages {
+  flex-wrap: wrap;
+  justify-content: left;
+  align-items: top;
+}
+
+.cameraImage {
+  display: inline-block;
+  background: orchid;
+  width: 100px;
+  height: 70px;
+  margin: 10px;
+}
+
+.cameraImageActive {
+  background: red;
+}
