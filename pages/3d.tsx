@@ -20,7 +20,7 @@ import {
 import { BoxGeometry, MathUtils } from "three";
 import { useLoader } from "@react-three/fiber";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
-import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
+import { animated, useSpring } from "@react-spring/three";
 
 // Only renders its children on client
 const CanvasSizer = (props: React.PropsWithChildren<{}>) => {
@@ -165,13 +165,13 @@ const TripodModel = (props: MeshProps) => {
     }
   );
   */
-  const gltf = useLoader(
-    GLTFLoader,
-    "/tripod_export.glb",
-    undefined,
-    (xhr) => console.log(xhr, (xhr.loaded / xhr.total) * 100 + "% loaded") // optional
-  );
+  const gltf = useLoader(GLTFLoader, "/tripod_export.glb");
 
+  return <primitive object={gltf.scene} {...props} />;
+};
+
+const CameraModel = (props: MeshProps) => {
+  const gltf = useLoader(GLTFLoader, "/A7-lowpoly.glb");
   return <primitive object={gltf.scene} {...props} />;
 };
 
@@ -182,6 +182,24 @@ const PositionsVisualizer = ({
   activePosition: Coordinate | undefined;
   makeActive: MakeActiveFn;
 }) => {
+  const activeRotation = (activePosition &&
+    getRotationForCoordinate(cameraConfig, activePosition)) ?? {
+    pan: 0,
+    tilt: 0,
+    roll: 0,
+  };
+
+  // const activeRotationEuler = activeRotation
+  //   ? panTiltRollToThreeJSEuler(activeRotation)
+  //   : [0, 0, 0, "YXZ"];
+
+  const { rotation } = useSpring({
+    rotation: [activeRotation.pan, activeRotation.tilt] as [
+      pan: number,
+      tilt: number
+    ],
+  });
+
   return (
     <group>
       <OrbitControls />
@@ -205,6 +223,13 @@ const PositionsVisualizer = ({
 
       <Suspense fallback={<Box />}>
         <TripodModel position={[0, -1.1, 0]} />
+        <animated.group
+          rotation={rotation.to((pan, tilt) =>
+            panTiltRollToThreeJSEuler({ pan, tilt, roll: 0 })
+          )}
+        >
+          <CameraModel position={[0, 0, 0]} />
+        </animated.group>
       </Suspense>
       {/* <GroundPlane position={[0, -1.1, 0]} /> */}
     </group>
@@ -222,6 +247,14 @@ function coordinateEqual(a: Coordinate, b: Coordinate): boolean {
 
 type MakeActiveFn = (activePosition: Coordinate | undefined) => void;
 type ByRow = { tilt: number; angles: CameraPosition[] }[];
+
+function getRotationForCoordinate(
+  cameraConfig: CameraConfig,
+  c: Coordinate
+): Rotation | undefined {
+  return cameraConfig.angles.find((a) => coordinateEqual(a.coordinate, c))
+    ?.rotation;
+}
 
 const ShotsView = ({
   byRow,
